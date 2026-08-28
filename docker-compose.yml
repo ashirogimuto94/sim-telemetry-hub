@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: simtelemetry-postgres
+    environment:
+      POSTGRES_USER: simuser
+      POSTGRES_PASSWORD: simsecret
+      POSTGRES_DB: simtelemetry
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/000001_init.up.sql:/docker-entrypoint-initdb.d/000001_init.up.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U simuser -d simtelemetry"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: simtelemetry-api
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_PORT: 8080
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: simuser
+      DB_PASSWORD: simsecret
+      DB_NAME: simtelemetry
+      DB_SSLMODE: disable
+      WORKER_POOL_SIZE: 10
+      JOB_QUEUE_BUFFER: 1000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
